@@ -99,6 +99,7 @@ class CaptioningRNN:
         # by one relative to each other because the RNN should produce word (t+1)
         # after receiving word t. The first element of captions_in will be the START
         # token, and the first element of captions_out will be the first word.
+        # print(captions)
         captions_in = captions[:, :-1]
         captions_out = captions[:, 1:]
 
@@ -148,7 +149,34 @@ class CaptioningRNN:
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        #affine to initial hidden state
+        affine_out, cache_affine = affine_forward(features, W_proj, b_proj)
+        
+        #word embbeding
+        embed_out, embeb_cache = word_embedding_forward(captions_in, W_embed)
+        
+        #RNN stage
+        h0 = affine_out
+        if self.cell_type == "rnn":
+            rnn_out, rnn_cache = rnn_forward(embed_out, h0, Wx, Wh, b)
+        
+        h = rnn_out 
+        
+        #scores for word stage
+        temporal_affine_out, temporal_affine_cache = temporal_affine_forward(h, W_vocab, b_vocab)   
+        
+        #softmax activation and cross entropy loss
+        loss, dout = temporal_softmax_loss(temporal_affine_out, captions_out, mask)
+        
+    
+        ## Backward phase
+        drnn_out, grads['W_vocab'], grads['b_vocab'] = temporal_affine_backward(dout, temporal_affine_cache)
+        if self.cell_type == "rnn":
+            dembed_out, dh0, grads['Wx'], grads['Wh'], grads['b'] = rnn_backward(drnn_out, rnn_cache)
+        
+        dfearture, grads['W_proj'], grads['b_proj'] = affine_backward(dh0, cache_affine)
+        
+        grads['W_embed'] = word_embedding_backward(dembed_out, embeb_cache)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -216,7 +244,29 @@ class CaptioningRNN:
         ###########################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        #affine to initial hidden state
+        affine_out, _ = affine_forward(features, W_proj, b_proj)
+        
+        pre_word = [self._start]*N
+        # pre_word = np.array(pre_word).reshape(N,1)
+        # print(pre_word.shape)
+        # print(N)
+    
+        #RNN stage
+        captions[:,0] = self._start
+        prev_h = affine_out
+        
+        for i in range(1, max_length):
+            x = W_embed[pre_word]
+            if self.cell_type == "rnn":
+                next_h,_ = rnn_step_forward(x, prev_h, Wx, Wh, b)
+            scores,_ = affine_forward(next_h, W_vocab, b_vocab)
+                
+            prev_h = next_h
+            next_word = np.zeros(scores.shape)
+            captions[:,i] = np.argmax(scores, axis = 1)
+            pre_word = captions[:,i]  
+                
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
