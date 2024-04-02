@@ -34,7 +34,12 @@ def compute_saliency_maps(X, y, model):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    # No softmax because scores are unnormalized
+    loss = model(X)[range(len(y)), y].sum()
+    loss.backward()
+
+    # As in paper, saliency is just the score grad with respect to input (abs+max)
+    saliency, _ = X.grad.abs().max(axis=1)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -76,7 +81,19 @@ def make_fooling_image(X, target_y, model):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    # model.eval()
+    for i in range(100):
+        print(i)      
+        pred = model(X_fooling)
+        # print(pred.shape)
+        if pred.max(dim=1)[1] == target_y:
+            break
+        loss = pred[0,target_y]
+        loss.backward()
+        dx = learning_rate * X_fooling.grad / X_fooling.grad.norm()
+        X_fooling.data = X_fooling.data + dx
+        X_fooling.grad.zero_()
+        
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -94,7 +111,11 @@ def class_visualization_update_step(img, model, target_y, l2_reg, learning_rate)
     ########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    pred = model(img)
+    target_score = pred[0, target_y] - l2_reg * img.square().sum()
+    target_score.backward()
+    img.data = img.data + learning_rate*img.grad / img.grad.norm()
+    img.grad.zero_()
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ########################################################################
