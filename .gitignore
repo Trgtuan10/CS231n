@@ -2,5 +2,5 @@
 * text=auto
 .env/
 *.pyc
-
+datasets/
 *.h5
